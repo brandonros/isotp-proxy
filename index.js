@@ -1,6 +1,6 @@
 const { Server } = require('ws')
 const { setupDevice, transferDataIn, transferDataOut, buildFrame, parseFrame } = require('node-gs_usb')
-const { buildIsoTpFrames, drainConsecutiveFrames, reconstructIsoTpFrames, waitForContinuationFrame } = require('./isotp')
+const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('./isotp')
 const { delay, highNibble } = require('./utilities')
 const queue = require('./queue')
 
@@ -27,7 +27,9 @@ const run = async () => {
   ws.on('message', async (message) => {
     const parsedMessage = JSON.parse(message)
     const { arbitrationId, payload } = parsedMessage
-    const frames = buildIsoTpFrames(payload)
+    const responseSid = payload[0]
+    const data = payload.slice(1)
+    const frames = buildIsoTpFrames(responseSid, data)
     for (let i = 0; i < frames.length; ++i) {
       const frame = frames[i]
       await transferDataOut(outEndpoint, buildFrame(arbitrationId, frame))
@@ -44,9 +46,10 @@ const run = async () => {
     queue.push(parsedFrame)
     const pci = highNibble(payload[0])
     if (pci === 0x00) { // forward single frame messages to websocket
+      const length = payload[0]
       ws.send(JSON.stringify({
         arbitrationId,
-        payload: payload.slice(1)
+        payload: payload.slice(1, length + 1).toString('hex')
       }))
     } else if (pci === 0x01) { // drain multi-frame messages, then reconstruct + send to websocket
       const firstFrame = frame
@@ -54,7 +57,7 @@ const run = async () => {
       const consecutiveFrames = await drainConsecutiveFrames(frame)
       ws.send(JSON.stringify({
         arbitrationId,
-        payload: reconstructIsoTpFrames(firstFrame, consecutiveFrames)
+        payload: extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')
       }))
     }
   })

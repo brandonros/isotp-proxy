@@ -5,6 +5,7 @@ const FIRST_FRAME_PCI_BYTE = 0x01
 const CONSECUTIVE_FRAME_PCI_BYTE = 0x02
 const FIRST_FRAME_DATA_LENGTH = 5
 const CONSECUTIVE_FRAME_DATA_LENGTH = 7
+const SINGLE_FRAME_DATA_LENGTH = 8
 const PADDING_BYTE = 0xAA
 const FRAME_WAIT_DELAY = 10
 const CONSECUTIVE_FRAME_TIMEOUT = 50
@@ -40,7 +41,18 @@ const buildConsecutiveFrame = (consecutiveFrameCounter, remainingData) => {
   ])
 }
 
+const buildSingleFrame = (responseSid, data) => {
+  const frame = [data.length + 1, responseSid].concat(data)
+  for (let i = frame.length; i < SINGLE_FRAME_DATA_LENGTH; ++i) {
+    frame.push(PADDING_BYTE)
+  }
+  return Buffer.from(frame)
+}
+
 const buildIsoTpFrames = (responseSid, data) => {
+  if (data.length < 8) {
+    return [buildSingleFrame(responseSid, data)]
+  }
   const frames = []
   frames.push(buildFirstFrame(responseSid, data))
   let remainingData = data.slice(FIRST_FRAME_DATA_LENGTH)
@@ -60,7 +72,7 @@ const buildIsoTpFrames = (responseSid, data) => {
 
 const waitForContinuationFrame = async () => {
   while (true) {
-    const continuationFrameIndex = queue.findIndex((msg) => msg.data[0] === 0x30)
+    const continuationFrameIndex = queue.findIndex((msg) => msg[0] === 0x30)
     if (continuationFrameIndex !== -1) {
       // console.log('Got continuation frame')
       queue.splice(continuationFrameIndex, 1)
@@ -78,7 +90,7 @@ const waitForConsecutiveFrame = async (sequenceNumber) => {
       console.log(`Failed waiting for consecutive frame 0x${sequenceNumber.toString(16)} after ${tick} ${FRAME_WAIT_DELAY}ms ticks`)
       throw new Error(`Consecutive frame SN ${sequenceNumber.toString(16)} took too long`)
     }
-    const consecutiveFrameIndex = queue.findIndex((msg) => msg.data[0] === sequenceNumber)
+    const consecutiveFrameIndex = queue.findIndex((msg) => msg[0] === sequenceNumber)
     if (consecutiveFrameIndex !== -1) {
       const frame = queue[consecutiveFrameIndex]
       queue.splice(consecutiveFrameIndex, 1)
@@ -90,11 +102,11 @@ const waitForConsecutiveFrame = async (sequenceNumber) => {
 }
 
 const drainConsecutiveFrames = async (firstFrame) => {
-  const pci = highNibble(firstFrame.data[0])
+  const pci = highNibble(firstFrame[0])
   if (pci !== 0x01) {
     throw new Error('Did not get valid first frame')
   }
-  const expectedSize = (lowNibble(firstFrame.data[0]) << 8) + firstFrame.data[1]
+  const expectedSize = (lowNibble(firstFrame[0]) << 8) + firstFrame[1]
   let expectedSequenceNumber = 0x21
   let bytesReceived = 6
   const frames = []
@@ -107,35 +119,23 @@ const drainConsecutiveFrames = async (firstFrame) => {
       expectedSequenceNumber = 0x20
     }
   }
-  frames.sort((a, b) => {
-    if (a.ts_sec < b.ts_sec) {
-      return -1
-    } else if (a.ts_sec > b.ts_sec) {
-      return 1
-    }
-    if (a.ts_usec < b.ts_usec) {
-      return -1
-    } else if (a.ts_usec > b.ts_usec) {
-      return 1
-    }
-    return 0
-  })
+  // TODO: sort frames?
   return frames
 }
 
-const reconstructIsoTpFrames = (firstFrame, consecutiveFrames) => {
+const extractIsotpPayload = (firstFrame, consecutiveFrames) => {
   let output = []
-  output = output.concat(firstFrame.data.slice(2))
+  output = output.concat(firstFrame.slice(2))
   consecutiveFrames.forEach(frame => {
-    output = output.concat(frame.data.slice(1))
+    output = output.concat(frame.slice(1))
   })
-  const expectedSize = (lowNibble(firstFrame.data[0]) << 8) + firstFrame.data[1]
-  return output.slice(0, expectedSize)
+  const expectedSize = (lowNibble(firstFrame[0]) << 8) + firstFrame[1]
+  return Buffer.from(output.slice(0, expectedSize))
 }
 
 module.exports = {
   buildIsoTpFrames,
   waitForContinuationFrame,
   drainConsecutiveFrames,
-  reconstructIsoTpFrames
+  extractIsotpPayload
 }

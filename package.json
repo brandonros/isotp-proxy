@@ -3,7 +3,10 @@
   "version": "0.0.1",
   "description": "ISO 15765-2 (ISO-TP) WebSocket proxy",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "lint": "eslint *.js",
+    "test": "jest test/**.spec.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/brandonros/isotp-proxy.git"
@@ -15,10 +18,11 @@
   },
   "homepage": "https://github.com/brandonros/isotp-proxy#readme",
   "dependencies": {
-    "ws": "^7.2.1",
-    "node-gs_usb": "brandonros/node-gs_usb#master"
+    "node-gs_usb": "brandonros/node-gs_usb#master",
+    "ws": "^7.2.1"
   },
   "devDependencies": {
+    "jest": "^25.1.0",
     "eslint": "^6.8.0",
     "eslint-config-standard": "^14.1.0",
     "eslint-plugin-import": "^2.20.0",
