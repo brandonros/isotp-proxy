@@ -4,6 +4,11 @@ const { buildIsoTpFrames, drainConsecutiveFrames, reconstructIsoTpFrames, waitFo
 const { delay, highNibble } = require('./utilities')
 const queue = require('./queue')
 
+const CONTROL_FLOW_FRAME = '3000000000000000'
+const PORT = 8080
+const VENDOR_ID = 0x1D50
+const DEVICE_ID = 0x606F
+
 const readLoop = async (inEndpoint, cb) => {
   const maxFrameLength = 32
   const frame = await transferDataIn(inEndpoint, maxFrameLength)
@@ -12,16 +17,15 @@ const readLoop = async (inEndpoint, cb) => {
 }
 
 const run = async () => {
-  const port = 8080
-  const vendorId = 0x1D50
-  const deviceId = 0x606F
   const wss = new Server({
-    port
+    port: PORT
   })
-  const { inEndpoint, outEndpoint } = await setupDevice(vendorId, deviceId)
+  const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
   const ws = await new Promise(resolve => wss.once('connection', resolve))
+  // receive message from websocket, send to device
   ws.on('message', async (message) => {
-    const { arbitrationId, payload } = message
+    const parsedMessage = JSON.parse(message)
+    const { arbitrationId, payload } = parsedMessage
     const frames = buildIsoTpFrames(payload)
     for (let i = 0; i < frames.length; ++i) {
       const frame = frames[i]
@@ -32,6 +36,7 @@ const run = async () => {
       await delay(50)
     }
   })
+  // receive message from device, send to websocket
   readLoop(inEndpoint, async (frame) => {
     const parsedFrame = parseFrame(frame)
     const { arbitrationId, payload } = parsedFrame
@@ -44,8 +49,7 @@ const run = async () => {
       }))
     } else if (pci === 0x01) { // drain multi-frame messages, then send to websocket
       const firstFrame = frame
-      const controlFlowFrame = '3000000000000000'
-      await transferDataOut(outEndpoint, buildFrame(arbitrationId, controlFlowFrame))
+      await transferDataOut(outEndpoint, buildFrame(arbitrationId, CONTROL_FLOW_FRAME))
       const consecutiveFrames = await drainConsecutiveFrames(frame)
       ws.send(JSON.stringify({
         arbitrationId,
