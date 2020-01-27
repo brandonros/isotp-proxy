@@ -17,10 +17,11 @@ const readLoop = async (inEndpoint, cb) => {
 }
 
 const run = async () => {
-  const wss = new Server({
-    port: PORT
-  })
+  // setup USB device
   const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
+  // setup websocket server
+  const wss = new Server({ port: PORT })
+  // get one and only one websocket server connection
   const ws = await new Promise(resolve => wss.once('connection', resolve))
   // receive message from websocket, send to device
   ws.on('message', async (message) => {
@@ -47,7 +48,7 @@ const run = async () => {
         arbitrationId,
         payload: payload.slice(1)
       }))
-    } else if (pci === 0x01) { // drain multi-frame messages, then send to websocket
+    } else if (pci === 0x01) { // drain multi-frame messages, then reconstruct + send to websocket
       const firstFrame = frame
       await transferDataOut(outEndpoint, buildFrame(arbitrationId, CONTROL_FLOW_FRAME))
       const consecutiveFrames = await drainConsecutiveFrames(frame)
