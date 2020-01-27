@@ -1,9 +1,12 @@
-const WebSocket = require('ws')
-const { delay } = require('./lib/utilities')
-const queue = require('./lib/queue')
+const queue = []
 
 const SOURCE_ARBITRATION_ID = 0x7E5
 const DESTINATION_ARBITRATION_ID = 0x7ED
+
+const delay = (ms) => new Promise((resolve, reject) => setTimeout(resolve, ms))
+
+const hex2buf = (hex) => new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)))
+const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00' + x.toString(16)).slice(-2)).join('')
 
 const waitForResponse = async (serviceId) => {
   let tick = 0
@@ -27,20 +30,20 @@ const logMessage = (message) => {
   console.log({
     arbitrationId: message.arbitrationId.toString(16),
     serviceId: message.serviceId.toString(16),
-    data: message.data.toString('hex')
+    data: buf2hex(message.data.buffer)
   })
 }
 
 const run = async () => {
   const ws = new WebSocket('ws://127.0.0.1:8080')
-  await new Promise(resolve => ws.on('open', resolve))
-  ws.on('message', (message) => {
-    const parsedMessage = JSON.parse(message)
+  await new Promise(resolve => ws.addEventListener('open', resolve))
+  ws.addEventListener('message', (message) => {
+    const parsedMessage = JSON.parse(message.data)
     const arbitrationId = parsedMessage.arbitrationId
     if (arbitrationId !== DESTINATION_ARBITRATION_ID) {
       return
     }
-    const data = Buffer.from(parsedMessage.data, 'hex')
+    const data = hex2buf(parsedMessage.data)
     const serviceId = parsedMessage.serviceId
     queue.push({
       arbitrationId,
@@ -52,28 +55,28 @@ const run = async () => {
   ws.send(JSON.stringify({
     arbitrationId: SOURCE_ARBITRATION_ID,
     serviceId: 0x11,
-    data: Buffer.from('01', 'hex').toString('hex')
+    data: '01'
   }))
   logMessage(await waitForResponse(0x51))
-  // diag mode
+  // diag mode 01
   ws.send(JSON.stringify({
     arbitrationId: SOURCE_ARBITRATION_ID,
     serviceId: 0x10,
-    data: Buffer.from('03', 'hex').toString('hex')
+    data: '03'
   }))
   logMessage(await waitForResponse(0x50))
   // read did 1000
   ws.send(JSON.stringify({
     arbitrationId: SOURCE_ARBITRATION_ID,
     serviceId: 0x22,
-    data: Buffer.from('F100', 'hex').toString('hex')
+    data: 'F100'
   }))
   logMessage(await waitForResponse(0x62))
   // seed request
   ws.send(JSON.stringify({
     arbitrationId: SOURCE_ARBITRATION_ID,
     serviceId: 0x27,
-    data: Buffer.from('11', 'hex').toString('hex')
+    data: '11'
   }))
   logMessage(await waitForResponse(0x67))
 }

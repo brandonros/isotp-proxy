@@ -5,6 +5,7 @@ const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForCo
 const { delay, highNibble } = require('./lib/utilities')
 const queue = require('./lib/queue')
 
+const FRAME_WAIT_DELAY = 10
 const CONTROL_FLOW_FRAME = Buffer.from('3000000000000000', 'hex')
 const PORT = 8080
 const VENDOR_ID = 0x1D50
@@ -40,7 +41,7 @@ const run = async () => {
       if (i === 0 && frames.length > 1) {
         await waitForContinuationFrame()
       }
-      await delay(50)
+      await delay(FRAME_WAIT_DELAY)
     }
   })
   // setup exit handler
