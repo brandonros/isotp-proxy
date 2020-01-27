@@ -1,4 +1,4 @@
-const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('../isotp')
+const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('../lib/isotp')
 
 describe('isotp', () => {
   describe('buildIsoTpFrames', () => {
