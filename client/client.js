@@ -334,7 +334,7 @@ const communicationControl = async (value) => {
 }
 
 const calculateKey = async (level, seed) => {
-  const response = await fetch(`http://184.73.139.8:5000/key/${level}/${seed}`)
+  const response = await fetch(`http://184.73.139.8:5000/key/${level.toString(16).padStart(2, '0')}/${seed}`)
   if (response.status !== 200) {
     throw new Error('Failed to calculate key')
   }
@@ -365,9 +365,9 @@ const run = async () => {
   await hardReset(0x01)
   await startDiagnosticSession(0x02)
   const seed = await requestSeed(0x11)
-  const key = await calculateKey(buf2hex(seed))
+  const key = await calculateKey(0x11, buf2hex(seed))
   await sendKey(0x12, key)
-  await controlDtcSettings(0x81)
+  //await controlDtcSettings(0x81)
   //await communicationControl(0x0015)
   await activateRoutine('82ff0500') // controlFailSafeReactionsStopFunc
   await activateRoutine('820204') // controlFailSafeReactions2StopFunc
