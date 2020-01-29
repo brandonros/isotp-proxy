@@ -7,7 +7,7 @@ describe('isotp', () => {
       const data = Buffer.from([0x00])
       const frames = buildIsoTpFrames(responseSid, data)
       expect(frames.length).toEqual(1)
-      expect(frames[0].toString('hex')).toEqual('023e00aaaaaaaaaa')
+      expect(frames[0].toString('hex')).toEqual('023e005555555555')
     })
 
     it('should convert message into 8 byte CAN frames (multi-frame)', () => {
@@ -16,7 +16,7 @@ describe('isotp', () => {
       const frames = buildIsoTpFrames(responseSid, data)
       expect(frames.length).toEqual(2)
       expect(frames[0].toString('hex')).toEqual('100b220102030405')
-      expect(frames[1].toString('hex')).toEqual('21060708090aaaaa')
+      expect(frames[1].toString('hex')).toEqual('21060708090a5555')
     })
   })
 
@@ -38,14 +38,6 @@ describe('isotp', () => {
         [0x2C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         [0x2D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         [0x2E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xAA]
-      ]
-      expect(extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')).toEqual('6210004350435f4e472d3136422d4d433138333759315f535730312d3231332d4d3137375f4445484c4134305f5553412d4d4531373232303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
-    })
-
-    it('should extract payload split across frames', () => {
-      const firstFrame = Buffer.from('100B340044800200', 'hex')
-      const consecutiveFrames = [
-        Buffer.from('2100001446000000', 'hex')
       ]
       expect(extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')).toEqual('6210004350435f4e472d3136422d4d433138333759315f535730312d3231332d4d3137375f4445484c4134305f5553412d4d4531373232303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
     })
