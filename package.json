@@ -4,7 +4,7 @@
   "description": "ISO 15765-2 (ISO-TP) WebSocket proxy",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint *.js",
+    "lint": "eslint client/**/*.js lib/**/*.js test/**/*.js index.js",
     "test": "jest test/**.spec.js"
   },
   "repository": {

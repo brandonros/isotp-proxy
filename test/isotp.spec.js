@@ -1,4 +1,4 @@
-const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('../lib/isotp')
+const { buildIsoTpFrames, extractIsotpPayload } = require('../lib/isotp')
 
 describe('isotp', () => {
   describe('buildIsoTpFrames', () => {
@@ -38,6 +38,14 @@ describe('isotp', () => {
         [0x2C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         [0x2D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
         [0x2E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xAA]
+      ]
+      expect(extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')).toEqual('6210004350435f4e472d3136422d4d433138333759315f535730312d3231332d4d3137375f4445484c4134305f5553412d4d4531373232303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+    })
+
+    it('should extract payload split across frames', () => {
+      const firstFrame = Buffer.from('100B340044800200', 'hex')
+      const consecutiveFrames = [
+        Buffer.from('2100001446000000', 'hex')
       ]
       expect(extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')).toEqual('6210004350435f4e472d3136422d4d433138333759315f535730312d3231332d4d3137375f4445484c4134305f5553412d4d4531373232303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
     })

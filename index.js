@@ -13,6 +13,8 @@ const DEVICE_ID = 0x606F
 const SOURCE_ARBITRATION_ID = 0x7E5
 const DESTINATION_ARBITRATION_ID = 0x7ED
 
+let ws = null
+
 const readLoop = async (inEndpoint, cb) => {
   const maxFrameLength = 32
   const frame = await transferDataIn(inEndpoint, maxFrameLength)
@@ -26,7 +28,7 @@ const run = async () => {
   // setup websocket server
   const wss = new Server({ port: PORT })
   // get one and only one websocket server connection
-  const ws = await new Promise(resolve => wss.once('connection', resolve))
+  ws = await new Promise(resolve => wss.once('connection', resolve))
   // receive message from websocket, send to device
   ws.on('message', async (message) => {
     const parsedMessage = JSON.parse(message)
