@@ -334,15 +334,7 @@ const communicationControl = async (value) => {
 }
 
 const calculateKey = async (level, seed) => {
-  const response = await fetch(`http://184.73.139.8:5000/key/${level}/${seed}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      seed
-    })
-  })
+  const response = await fetch(`http://184.73.139.8:5000/key/${level}/${seed}`)
   if (response.status !== 200) {
     throw new Error('Failed to calculate key')
   }
