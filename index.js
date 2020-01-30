@@ -25,10 +25,12 @@ const readLoop = async (inEndpoint, cb) => {
 const run = async () => {
   // setup USB device
   const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
+  debug('device setup')
   // setup websocket server
   const wss = new Server({ port: PORT })
   // get one and only one websocket server connection
   ws = await new Promise(resolve => wss.once('connection', resolve))
+  debug('websocket connected')
   // receive message from websocket, send to device
   ws.on('message', async (message) => {
     const parsedMessage = JSON.parse(message)
@@ -55,6 +57,7 @@ const run = async () => {
     const parsedFrame = parseFrame(frame)
     const { arbitrationId, payload } = parsedFrame
     if (arbitrationId !== DESTINATION_ARBITRATION_ID) {
+      debug(`dropping frame; arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
     debug(`readLoop: ${payload.toString('hex')}`)
