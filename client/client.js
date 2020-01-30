@@ -1,8 +1,8 @@
 const queue = []
 let ws = null
 
-const SOURCE_ARBITRATION_ID = 0x7E5
-const DESTINATION_ARBITRATION_ID = 0x7ED
+const SOURCE_ARBITRATION_ID = 0x7ED
+const DESTINATION_ARBITRATION_ID = 0x7E5
 
 const FAILURE_REASONS = {
   0x10: 'generalReject',
@@ -208,150 +208,236 @@ const logMessage = (message) => {
   })
 }
 
-const hardReset = async (level) => {
-  const message = {
-    arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x11,
-    data: buf2hex(new Uint8Array([level]))
-  }
-  ws.send(JSON.stringify(message))
-  console.log(`> 11 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
+const dataIdentifiers = {
+  0xF100: '033E0402',
+  0xF155: '',
+  0xF151: '',
+  0xF121: '',
+  0x0100: '',
+  0xF199: '',
+  0xF15B: '',
+  0xF186: '',
+  0xF153: '',
+  0xF150: '',
+  0xF154: ''
 }
 
-const startDiagnosticSession = async (level) => {
-  const message = {
-    arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x10,
-    data: buf2hex(new Uint8Array([level]))
-  }
-  ws.send(JSON.stringify(message))
-  console.log(`> 10 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
+const state = {
+  diagnosticMode: 0x01,
+  lastTesterPresent: null,
+  seed: '2fccb18b'
 }
 
-const readDid = async (did) => {
-  const message = {
-    arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x22,
-    data: buf2hex(new Uint8Array([did >> 8, did & 0xFF]))
+const diagnosticSessionService = async (data) => {
+  const level = data[0]
+  if (level === 0x03) {
+    state.diagnosticMode = 0x03
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x50,
+      data: '03001400C8'
+    }
+    ws.send(JSON.stringify(message))
+  } else if (level === 0x02) {
+    state.diagnosticMode = 0x02
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x50,
+      data: '02001400C8'
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.error(`Unknown diagnostic level: ${level}`)
   }
-  ws.send(JSON.stringify(message))
-  console.log(`> 22 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const requestSeed = async (level) => {
-  const message = {
-    arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x27,
-    data: buf2hex(new Uint8Array([level]))
+const testerPresent = async (data) => {
+  const value = data[0]
+  if (value === 0x00) {
+    state.lastTesterPresent = new Date()
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x7E,
+      data: '00'
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.error(`Unknown tester present value: ${value}`)
   }
-  ws.send(JSON.stringify(message))
-  console.log(`> 27 ${message.data}`)
-  const response = await waitForResponse(message.serviceId + 0x40)
-  return response.data.slice(1)
 }
 
-const sendKey = async (level, key) => {
+const securityAccess = async (data) => {
+  const level = data[0]
+  if (level === 0x11) {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x67,
+      data: `${level}${state.seed}`
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.error(`Unknown security access level: ${level}`)
+  }
+}
+
+const readDataByIdentifier = async (data) => {
+  const dataIdentifier = new DataView(data.buffer).getUint16(0)
+  if (dataIdentifiers[dataIdentifier] !== undefined) {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x62,
+      data: `${dataIdentifier.toString(16).padStart(4, '0')}${dataIdentifiers[dataIdentifier]}`
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.error(`Unknown data identifier: ${dataIdentifier.toString(16)}`)
+  }
+}
+
+const writeDataByIdentifier = async (data) => {
+  const dataView = new DataView(data.buffer)
+  const dataIdentifier = dataView.getUint16(0)
+  dataIdentifiers[dataIdentifiers] = buf2hex(data.slice(2))
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x27,
-    data: `${level.toString(16).padStart(2, '0')}${key}`
+    serviceId: 0x6E,
+    data: `${dataIdentifier.toString(16).padStart(4, '0')}`
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 27 ${message.data}`)
-  const response = await waitForResponse(message.serviceId + 0x40)
-  if (response.data[0] !== level) {
-    throw new Error('sendKey failed')
+}
+
+const activateRoutine = async (data) => {
+  const routineKey = buf2hex(data)
+  if (routineKey === '01ff000100') {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x71,
+      data: `01ff000000`
+    }
+    ws.send(JSON.stringify(message))
+  } else if (routineKey.slice(0, 6) === '01ff04') {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x71,
+      data: `01ff040000`
+    }
+    ws.send(JSON.stringify(message))
+  } else if (routineKey.slice(0, 6) === '01ff05') {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x71,
+      data: `01ff050000`
+    }
+    ws.send(JSON.stringify(message))
+  } else if (routineKey.slice(0, 6) === '01ff06') {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x71,
+      data: `01ff060000`
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.error(`Unknown routine: ${routineKey}`)
   }
 }
 
 const requestDownload = async (data) => {
+  state.chunkIndex = 0x00
+  state.chunks = []
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x34,
-    data
+    serviceId: 0x74,
+    data: `100FFD`
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 34 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const requestUpload = async (data) => {
+const transferData = async (data) => {
+  const chunkIndex = data[0]
+  const chunk = data.slice(1)
+  state.chunks.push(buf2hex(chunk))
+  if (state.chunkIndex === 0xFF) {
+    state.chunkIndex = 0x00
+  } else {
+    state.chunkIndex += 1
+  }
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x35,
-    data
+    serviceId: 0x76,
+    data: ''
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 35 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const activateRoutine = async (data) => {
+const requestTransferExit = async (data) => {
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x31,
-    data
+    serviceId: 0x77,
+    data: ''
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 31 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const eraseMemory = async (region) => {
+const reset = async (data) => {
+  const level = data[0]
+  if (level === 0x01) {
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x51,
+      data: '01'
+    }
+    ws.send(JSON.stringify(message))
+  } else {
+    console.log(`Unknown reset level: ${level.toString(16).padStart(2, '0')}`)
+  }
+}
+
+const controlDtcSettings = async (data) => {
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x31,
-    data: `01ff00${region}`
+    serviceId: 0xC5,
+    data: ''
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 31 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const controlDtcSettings = async (mode) => {
+const communicationControl = async (data) => {
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x85,
-    data: buf2hex(new Uint8Array([mode]))
+    serviceId: 0x68,
+    data: ''
   }
   ws.send(JSON.stringify(message))
-  console.log(`> 85 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
 }
 
-const communicationControl = async (value) => {
-  const message = {
-    arbitrationId: SOURCE_ARBITRATION_ID,
-    serviceId: 0x28,
-    data: buf2hex(new Uint8Array([value >> 8, value & 0xFF]))
-  }
-  ws.send(JSON.stringify(message))
-  console.log(`> 28 ${message.data}`)
-  logMessage(await waitForResponse(message.serviceId + 0x40))
+const services = {
+  0x10: diagnosticSessionService,
+  0x11: reset,
+  0x3E: testerPresent,
+  0x22: readDataByIdentifier,
+  0x2E: writeDataByIdentifier,
+  0x27: securityAccess,
+  0x31: activateRoutine,
+  0x34: requestDownload,
+  0x36: transferData,
+  0x37: requestTransferExit,
+  0x85: controlDtcSettings,
+  0x28: communicationControl
 }
 
-const calculateKey = async (level, seed) => {
-  const response = await fetch(`http://184.73.139.8:5000/key/${level.toString(16).padStart(2, '0')}/${seed}`)
-  if (response.status !== 200) {
-    throw new Error('Failed to calculate key')
-  }
-  const responseBody = await response.json()
-  return responseBody.key
-}
 
 const init = async () => {
   ws = new WebSocket('ws://127.0.0.1:8080')
   await new Promise(resolve => ws.addEventListener('open', resolve))
+  console.log('connected')
   ws.addEventListener('message', (message) => {
     const parsedMessage = JSON.parse(message.data)
     const arbitrationId = parsedMessage.arbitrationId
     if (arbitrationId !== DESTINATION_ARBITRATION_ID) {
+      console.log(`ignoring message; arbitrationId: ${arbitrationId.toString(16)}`)
       return
     }
-    const data = hex2buf(parsedMessage.data)
+    const data = parsedMessage.data ? hex2buf(parsedMessage.data) : ''
     const serviceId = parsedMessage.serviceId
     queue.push({
       arbitrationId,
@@ -362,27 +448,21 @@ const init = async () => {
 }
 
 const run = async () => {
-  await hardReset(0x01)
-  await delay(1000)
-  await startDiagnosticSession(0x02)
-  await delay(1000)
-  const seed = await requestSeed(0x11)
-  await delay(1000)
-  const key = await calculateKey(0x11, buf2hex(seed))
-  await sendKey(0x12, key)
-  //await controlDtcSettings(0x81)
-  //await communicationControl(0x0015)
-  await activateRoutine('820206') // prepareVehicleSystemsForReprogrammingStopFunc
-  await activateRoutine('82ff0500') // controlFailSafeReactionsStopFunc
-  await activateRoutine('820204') // controlFailSafeReactions2StopFunc
-  await activateRoutine('82020400') // controlFailSafeReactions3StopFunc
-  await eraseMemory('0100')
-  const compession = '1'
-  const addressLength = '4'
-  const sizeLength = '4'
-  const address = '80018000'
-  const size = '0005FC00'
-  await requestDownload(`${compession}0${addressLength}${sizeLength}${address}${size}`)
+  for (;;) {
+    await delay(10)
+    if (!queue.length) {
+      continue
+    }
+    const frame = queue.shift()
+    const serviceId = frame.serviceId
+    if (services[serviceId]) {
+      await services[serviceId](frame.data)
+    } else {
+      console.log(buf2hex(frame.data))
+      throw new Error(`Unknown service: ${serviceId.toString(16).padStart(2, '0')}`)
+    }
+  }
 }
 
 init()
+run()

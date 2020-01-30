@@ -10,8 +10,8 @@ const CONTROL_FLOW_FRAME = Buffer.from('3000000000000000', 'hex')
 const PORT = 8080
 const VENDOR_ID = 0x1D50
 const DEVICE_ID = 0x606F
-const SOURCE_ARBITRATION_ID = 0x7E5
-const DESTINATION_ARBITRATION_ID = 0x7ED
+const SOURCE_ARBITRATION_ID = 0x7ED
+const DESTINATION_ARBITRATION_ID = 0x7E5
 
 let ws = null
 
@@ -40,7 +40,7 @@ const run = async () => {
     const frames = buildIsoTpFrames(serviceId, data)
     for (let i = 0; i < frames.length; ++i) {
       const frame = frames[i]
-      debug(`transferDataOut: ${frame.toString('hex')}`)
+      debug(`transferDataOut: ${arbitrationId.toString(16)} ${frame.toString('hex')}`)
       await transferDataOut(outEndpoint, buildFrame(arbitrationId, frame))
       if (i === 0 && frames.length > 1) {
         await waitForContinuationFrame()
@@ -60,7 +60,7 @@ const run = async () => {
       debug(`dropping frame; arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
-    debug(`readLoop: ${payload.toString('hex')}`)
+    debug(`readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
     const pci = highNibble(payload[0])
     if (pci === 0x00) { // forward single frame messages to websocket
       const length = payload[0]
@@ -76,7 +76,7 @@ const run = async () => {
       debug(`transferDataOut: ${CONTROL_FLOW_FRAME.toString('hex')}`)
       await transferDataOut(outEndpoint, buildFrame(SOURCE_ARBITRATION_ID, CONTROL_FLOW_FRAME))
       const consecutiveFrames = await drainConsecutiveFrames(payload)
-      const isotpPayload = extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')
+      const isotpPayload = extractIsotpPayload(firstFrame, consecutiveFrames)
       const serviceId = isotpPayload[0]
       const data = isotpPayload.slice(1)
       ws.send(JSON.stringify({
