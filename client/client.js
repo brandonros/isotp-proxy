@@ -209,17 +209,20 @@ const logMessage = (message) => {
 }
 
 const dataIdentifiers = {
+  0x0100: '0000FFFF0001FFFF0001FFFF',
+  0x0131: '',
+  0x1001: '0d000006686867c300140000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001',
   0xF100: '033E0402',
-  0xF155: '',
-  0xF151: '',
   0xF121: '',
-  0x0100: '',
+  0xF150: '0E2F00',
+  0xF151: '0F1100110B00111600',
+  0xF153: '0F1100',
+  0xF154: '',
+  0xF155: '',
+  0xF15B: '01000000000000000000010004110B1000000001010004110B1000000001',
+  0xF186: '03',
+  0xF196: '',
   0xF199: '',
-  0xF15B: '',
-  0xF186: '',
-  0xF153: '',
-  0xF150: '',
-  0xF154: ''
 }
 
 const state = {
@@ -268,7 +271,14 @@ const testerPresent = async (data) => {
 
 const securityAccess = async (data) => {
   const level = data[0]
-  if (level === 0x11) {
+  if (level === 0x11) { // reprogramming
+    const message = {
+      arbitrationId: SOURCE_ARBITRATION_ID,
+      serviceId: 0x67,
+      data: `${level}${state.seed}`
+    }
+    ws.send(JSON.stringify(message))
+  } else if (level === 0x0b) { // variant coding
     const message = {
       arbitrationId: SOURCE_ARBITRATION_ID,
       serviceId: 0x67,
@@ -276,12 +286,13 @@ const securityAccess = async (data) => {
     }
     ws.send(JSON.stringify(message))
   } else {
-    console.error(`Unknown security access level: ${level}`)
+    console.error(`Unknown security access level: ${level.toString(16)}`)
   }
 }
 
 const readDataByIdentifier = async (data) => {
   const dataIdentifier = new DataView(data.buffer).getUint16(0)
+  console.log(`readDataByIdentifier: ${dataIdentifier.toString(16)}`)
   if (dataIdentifiers[dataIdentifier] !== undefined) {
     const message = {
       arbitrationId: SOURCE_ARBITRATION_ID,
@@ -297,7 +308,9 @@ const readDataByIdentifier = async (data) => {
 const writeDataByIdentifier = async (data) => {
   const dataView = new DataView(data.buffer)
   const dataIdentifier = dataView.getUint16(0)
-  dataIdentifiers[dataIdentifiers] = buf2hex(data.slice(2))
+  const value = buf2hex(data.slice(2))
+  console.log(`writeDataByIdentifier: ${dataIdentifier.toString(16)} ${value}`)
+  dataIdentifiers[dataIdentifiers] = value
   const message = {
     arbitrationId: SOURCE_ARBITRATION_ID,
     serviceId: 0x6E,
@@ -425,7 +438,6 @@ const services = {
   0x28: communicationControl
 }
 
-
 const init = async () => {
   ws = new WebSocket('ws://127.0.0.1:8080')
   await new Promise(resolve => ws.addEventListener('open', resolve))
@@ -456,6 +468,7 @@ const run = async () => {
     const frame = queue.shift()
     const serviceId = frame.serviceId
     if (services[serviceId]) {
+      console.log(serviceId.toString(16))
       await services[serviceId](frame.data)
     } else {
       console.log(buf2hex(frame.data))
