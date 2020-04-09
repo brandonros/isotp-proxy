@@ -59,7 +59,9 @@ const run = async () => {
     const parsedFrame = parseFrame(frame)
     const { arbitrationId, payload } = parsedFrame
     const pci = highNibble(payload[0])
-    if (arbitrationId !== DESTINATION_ARBITRATION_ID) {
+    const shouldSendFrame = (arbitrationId === SOURCE_ARBITRATION_ID && pci === 0x03) ||
+      arbitrationId === DESTINATION_ARBITRATION_ID
+    if (!shouldSendFrame) {
       debug(`dropping frame; pci = ${pci.toString(16)} arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
