@@ -39,7 +39,6 @@ const run = async () => {
   ws.on('message', async (message) => {
     const parsedMessage = JSON.parse(message)
     const arbitrationId = parsedMessage.arbitrationId
-    const serviceId = parsedMessage.serviceId
     const data = Buffer.from(parsedMessage.data, 'hex')
     debug(`wsMessage/transferDataOut: ${arbitrationId.toString(16)} ${data.toString('hex')}`)
     await transferDataOut(outEndpoint, buildFrame(arbitrationId, data))
@@ -60,7 +59,6 @@ const run = async () => {
     debug(`wsSend/readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
     ws.send(JSON.stringify({
       arbitrationId,
-      serviceId,
       data: payload.toString('hex')
     }))
   })
