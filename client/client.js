@@ -342,6 +342,30 @@ const calculateKey = async (level, seed) => {
   return responseBody.key
 }
 
+const run = async () => {
+  await hardReset(0x01)
+  await delay(1000)
+  await startDiagnosticSession(0x02)
+  await delay(1000)
+  /*const seed = await requestSeed(0x11)
+  await delay(1000)
+  const key = await calculateKey(0x11, buf2hex(seed))
+  await sendKey(0x12, key)
+  //await controlDtcSettings(0x81)
+  //await communicationControl(0x0015)
+  await activateRoutine('820206') // prepareVehicleSystemsForReprogrammingStopFunc
+  await activateRoutine('82ff0500') // controlFailSafeReactionsStopFunc
+  await activateRoutine('820204') // controlFailSafeReactions2StopFunc
+  await activateRoutine('82020400') // controlFailSafeReactions3StopFunc
+  await eraseMemory('0100')
+  const compession = '1'
+  const addressLength = '4'
+  const sizeLength = '4'
+  const address = '80018000'
+  const size = '0005FC00'
+  await requestDownload(`${compession}0${addressLength}${sizeLength}${address}${size}`)*/
+}
+
 const init = async () => {
   ws = new WebSocket('ws://127.0.0.1:8080')
   await new Promise(resolve => ws.addEventListener('open', resolve))
@@ -359,30 +383,6 @@ const init = async () => {
       data
     })
   })
-}
-
-const run = async () => {
-  await hardReset(0x01)
-  await delay(1000)
-  await startDiagnosticSession(0x02)
-  await delay(1000)
-  const seed = await requestSeed(0x11)
-  await delay(1000)
-  const key = await calculateKey(0x11, buf2hex(seed))
-  await sendKey(0x12, key)
-  //await controlDtcSettings(0x81)
-  //await communicationControl(0x0015)
-  await activateRoutine('820206') // prepareVehicleSystemsForReprogrammingStopFunc
-  await activateRoutine('82ff0500') // controlFailSafeReactionsStopFunc
-  await activateRoutine('820204') // controlFailSafeReactions2StopFunc
-  await activateRoutine('82020400') // controlFailSafeReactions3StopFunc
-  await eraseMemory('0100')
-  const compession = '1'
-  const addressLength = '4'
-  const sizeLength = '4'
-  const address = '80018000'
-  const size = '0005FC00'
-  await requestDownload(`${compession}0${addressLength}${sizeLength}${address}${size}`)
 }
 
 init()

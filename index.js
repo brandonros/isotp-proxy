@@ -1,4 +1,4 @@
-const { Server } = require('ws')
+const WebSocket = require('ws')
 const { setupDevice, transferDataIn, transferDataOut, buildFrame, parseFrame } = require('node-gs_usb')
 const debug = require('debug')('isotp-proxy')
 const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('./lib/isotp')
@@ -13,8 +13,6 @@ const DEVICE_ID = 0x606F
 const SOURCE_ARBITRATION_ID = 0x7E5
 const DESTINATION_ARBITRATION_ID = 0x7ED
 
-let ws = null
-
 const readLoop = async (inEndpoint, cb) => {
   const maxFrameLength = 32
   const frame = await transferDataIn(inEndpoint, maxFrameLength)
@@ -27,9 +25,10 @@ const run = async () => {
   const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
   debug('device setup')
   // setup websocket server
-  const wss = new Server({ port: PORT })
+  const wss = new WebSocket.Server({ port: PORT })
   // get one and only one websocket server connection
-  ws = await new Promise(resolve => wss.once('connection', resolve))
+  debug('waiting for websocket connection')
+  const ws = await new Promise(resolve => wss.once('connection', resolve))
   debug('websocket connected')
   // receive message from websocket, send to device
   ws.on('message', async (message) => {
@@ -50,6 +49,7 @@ const run = async () => {
   })
   // setup exit handler
   ws.on('close', () => {
+    debug('websocket closed')
     process.exit(0)
   })
   // receive message from device, send to websocket
