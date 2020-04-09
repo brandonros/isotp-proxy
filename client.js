@@ -27,6 +27,7 @@ const run = async () => {
     process.exit(1)
   }
   // setup USB device
+  debug('setting up device')
   const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
   debug('device setup')
   // connect to client websocket
