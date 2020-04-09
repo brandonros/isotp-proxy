@@ -43,7 +43,7 @@ const run = async () => {
     const frames = buildIsoTpFrames(serviceId, data)
     for (let i = 0; i < frames.length; ++i) {
       const frame = frames[i]
-      debug(`transferDataOut: ${frame.toString('hex')}`)
+      debug(`transferDataOut: ${arbitrationId.toString(16)} ${frame.toString('hex')}`)
       await transferDataOut(outEndpoint, buildFrame(arbitrationId, frame))
       if (i === 0 && frames.length > 1) {
         await waitForContinuationFrame()
@@ -60,11 +60,11 @@ const run = async () => {
   readLoop(inEndpoint, async (frame) => {
     const parsedFrame = parseFrame(frame)
     const { arbitrationId, payload } = parsedFrame
-    if (arbitrationId !== DESTINATION_ARBITRATION_ID) {
+    if (arbitrationId !== SOURCE_ARBITRATION_ID) {
       debug(`dropping frame; arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
-    debug(`readLoop: ${payload.toString('hex')}`)
+    debug(`readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
     const pci = highNibble(payload[0])
     if (pci === 0x00) { // forward single frame messages to websocket
       const length = payload[0]
@@ -77,8 +77,8 @@ const run = async () => {
       }))
     } else if (pci === 0x01) { // drain multi-frame messages, then reconstruct + send to websocket
       const firstFrame = payload
-      debug(`transferDataOut: ${CONTROL_FLOW_FRAME.toString('hex')}`)
-      await transferDataOut(outEndpoint, buildFrame(SOURCE_ARBITRATION_ID, CONTROL_FLOW_FRAME))
+      debug(`transferDataOut: ${DESTINATION_ARBITRATION_ID.toString(16)} ${CONTROL_FLOW_FRAME.toString('hex')}`)
+      await transferDataOut(outEndpoint, buildFrame(DESTINATION_ARBITRATION_ID, CONTROL_FLOW_FRAME))
       const consecutiveFrames = await drainConsecutiveFrames(payload)
       const isotpPayload = extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')
       const serviceId = isotpPayload[0]

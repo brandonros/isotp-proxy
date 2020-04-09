@@ -35,7 +35,7 @@ const run = async () => {
     // setup ngrok
   await ngrok.authtoken(process.env.NGROK_AUTH_TOKEN)
   const tunnelUrl = await ngrok.connect(PORT)
-  console.log(`server live on: ${tunnelUrl}`)
+  console.log(`server live on: ${tunnelUrl.replace('https://', 'wss://')}`)
   // get one and only one websocket server connection
   debug('waiting for websocket connection')
   const ws = await new Promise(resolve => wss.once('connection', resolve))
@@ -49,7 +49,7 @@ const run = async () => {
     const frames = buildIsoTpFrames(serviceId, data)
     for (let i = 0; i < frames.length; ++i) {
       const frame = frames[i]
-      debug(`transferDataOut: ${frame.toString('hex')}`)
+      debug(`transferDataOut: ${arbitrationId.toString(16)} ${frame.toString('hex')}`)
       await transferDataOut(outEndpoint, buildFrame(arbitrationId, frame))
       if (i === 0 && frames.length > 1) {
         await waitForContinuationFrame()
@@ -70,7 +70,7 @@ const run = async () => {
       debug(`dropping frame; arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
-    debug(`readLoop: ${payload.toString('hex')}`)
+    debug(`readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
     const pci = highNibble(payload[0])
     if (pci === 0x00) { // forward single frame messages to websocket
       const length = payload[0]
@@ -83,7 +83,7 @@ const run = async () => {
       }))
     } else if (pci === 0x01) { // drain multi-frame messages, then reconstruct + send to websocket
       const firstFrame = payload
-      debug(`transferDataOut: ${CONTROL_FLOW_FRAME.toString('hex')}`)
+      debug(`transferDataOut: ${SOURCE_ARBITRATION_ID.toString(16)} ${CONTROL_FLOW_FRAME.toString('hex')}`)
       await transferDataOut(outEndpoint, buildFrame(SOURCE_ARBITRATION_ID, CONTROL_FLOW_FRAME))
       const consecutiveFrames = await drainConsecutiveFrames(payload)
       const isotpPayload = extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')
