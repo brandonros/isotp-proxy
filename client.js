@@ -52,8 +52,9 @@ const run = async () => {
   readLoop(inEndpoint, async (frame) => {
     const parsedFrame = parseFrame(frame)
     const { arbitrationId, payload } = parsedFrame
+    const pci = highNibble(payload[0])
     if (arbitrationId !== SOURCE_ARBITRATION_ID) {
-      debug(`dropping frame; arbitrationId = ${arbitrationId.toString(16)}`)
+      debug(`dropping frame; pci = ${pci.toString(16)} arbitrationId = ${arbitrationId.toString(16)}`)
       return
     }
     debug(`wsSend/readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
