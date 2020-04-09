@@ -41,16 +41,8 @@ const run = async () => {
     const arbitrationId = parsedMessage.arbitrationId
     const serviceId = parsedMessage.serviceId
     const data = Buffer.from(parsedMessage.data, 'hex')
-    const frames = buildIsoTpFrames(serviceId, data)
-    for (let i = 0; i < frames.length; ++i) {
-      const frame = frames[i]
-      debug(`wsMessage/transferDataOut: ${arbitrationId.toString(16)} ${frame.toString('hex')}`)
-      await transferDataOut(outEndpoint, buildFrame(arbitrationId, frame))
-      if (i === 0 && frames.length > 1) {
-        await waitForContinuationFrame()
-      }
-      await delay(FRAME_WAIT_DELAY)
-    }
+    debug(`wsMessage/transferDataOut: ${arbitrationId.toString(16)} ${data.toString('hex')}`)
+    await transferDataOut(outEndpoint, buildFrame(arbitrationId, data))
   })
   // setup exit handler
   ws.on('close', () => {
@@ -66,36 +58,11 @@ const run = async () => {
       return
     }
     debug(`wsSend/readLoop: ${arbitrationId.toString(16)} ${payload.toString('hex')}`)
-    const pci = highNibble(payload[0])
-    if (pci === 0x00) { // forward single frame messages to websocket
-      const length = payload[0]
-      const serviceId = payload[1]
-      const data = payload.slice(2, length + 1)
-      ws.send(JSON.stringify({
-        arbitrationId,
-        serviceId,
-        data: data.toString('hex')
-      }))
-    } else if (pci === 0x01) { // drain multi-frame messages, then reconstruct + send to websocket
-      const firstFrame = payload
-      /*debug(`controlFlow/transferDataOut: ${DESTINATION_ARBITRATION_ID.toString(16)} ${CONTROL_FLOW_FRAME.toString('hex')}`)
-      await transferDataOut(outEndpoint, buildFrame(DESTINATION_ARBITRATION_ID, CONTROL_FLOW_FRAME))*/
-      const consecutiveFrames = await drainConsecutiveFrames(payload)
-      const isotpPayload = extractIsotpPayload(firstFrame, consecutiveFrames).toString('hex')
-      const serviceId = isotpPayload[0]
-      const data = isotpPayload.slice(1)
-      ws.send(JSON.stringify({
-        arbitrationId,
-        serviceId,
-        data: data.toString('hex')
-      }))
-    } else if (pci === 0x02) {
-      queue.push(payload)
-    } else if (pci === 0x03) {
-      debug('got control flow frame')
-    } else {
-      debug('got unknown PCI')
-    }
+    ws.send(JSON.stringify({
+      arbitrationId,
+      serviceId,
+      data: payload.toString('hex')
+    }))
   })
 }
 
