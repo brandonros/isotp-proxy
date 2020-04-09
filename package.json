@@ -19,6 +19,7 @@
   "homepage": "https://github.com/brandonros/isotp-proxy#readme",
   "dependencies": {
     "debug": "^4.1.1",
+    "ngrok": "^3.2.7",
     "node-gs_usb": "brandonros/node-gs_usb#master",
     "ws": "^7.2.1"
   },

@@ -1,15 +1,16 @@
 const WebSocket = require('ws')
 const { setupDevice, transferDataIn, transferDataOut, buildFrame, parseFrame } = require('node-gs_usb')
 const debug = require('debug')('isotp-proxy')
+const ngrok = require('ngrok')
 const { buildIsoTpFrames, drainConsecutiveFrames, extractIsotpPayload, waitForContinuationFrame } = require('./lib/isotp')
 const { delay, highNibble } = require('./lib/utilities')
 const queue = require('./lib/queue')
 
 const FRAME_WAIT_DELAY = 10
 const CONTROL_FLOW_FRAME = Buffer.from('3000000000000000', 'hex')
-const PORT = 8080
 const VENDOR_ID = 0x1D50
 const DEVICE_ID = 0x606F
+const PORT = 8080
 const SOURCE_ARBITRATION_ID = 0x7E5
 const DESTINATION_ARBITRATION_ID = 0x7ED
 
@@ -21,11 +22,20 @@ const readLoop = async (inEndpoint, cb) => {
 }
 
 const run = async () => {
+  // validate arguments
+  if (!process.env.NGROK_AUTH_TOKEN) {
+    console.error('usage: NGROK_AUTH_TOKEN=... server')
+    process.exit(1)
+  }
   // setup USB device
   const { inEndpoint, outEndpoint } = await setupDevice(VENDOR_ID, DEVICE_ID)
   debug('device setup')
   // setup websocket server
   const wss = new WebSocket.Server({ port: PORT })
+    // setup ngrok
+  await ngrok.authtoken(process.env.NGROK_AUTH_TOKEN)
+  const tunnelUrl = await ngrok.connect(PORT)
+  console.log(`server live on: ${tunnelUrl}`)
   // get one and only one websocket server connection
   debug('waiting for websocket connection')
   const ws = await new Promise(resolve => wss.once('connection', resolve))
